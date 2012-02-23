@@ -7,7 +7,8 @@ window.requestAnimFrame =
   (callback, element) ->
     window.setTimeout callback, 16.666
 
-
+WIDTH = 720
+HEIGHT = 480
 
 class Game
   constructor: (@game) ->
@@ -19,16 +20,14 @@ class Game
     @width  = @canvas.width
     @height = @canvas.height
     @ctx    = @canvas.getContext "2d"
-    
     @loopStart   = new Date().getTime()
     @lastTick    = new Date().getTime()
     @lastFPSDisp = new Date().getTime()
-
     @running = true
     @game.init @ if @game.init?
     requestAnimFrame =>
       @loop()
-      
+
   loop: ->
     @currentTick = (new Date()).getTime()
     fps = 1000/(@currentTick - @lastTick)
@@ -43,73 +42,84 @@ class Game
     @lastTick = @currentTick
 
 class Ball
-  constructor: (@x, @y, @width, @height) ->
+  constructor: (@x, @y) ->
     @radius = 6
     [@xvel, @yvel] = [3,3]
     @color = [255,0,0]
     @ticks=0
+
   shiftColor: ->
     h = (@ticks % 360)/360
-    c = Art.hslToRGB h, 1, 0.5
-    console.log c
-    @color = c
+    @color = Art.hslToRGB h, 1, 0.5
+
   tick: ->
     @ticks++
     @shiftColor()
-    nx = @x + @xvel
-    ny = @y + @yvel
-    if nx < 0
-      @bounceX()
-      nx = 0
-    else if nx > @width-@radius*2
-      @bounceX()
-      nx = @width-@radius*2
-    else if ny < 0
-      @bounceY()
-      ny = 0
-    else if ny > @height-@radius*2
-      @bounceY()
-      ny = @height-@radius*2
+    [nx, ny] = [@x + @xvel, @y + @yvel]
+    if nx < 0 or nx > WIDTH-@radius*2 then @xvel *= -1
+    else if ny < 0 or ny > HEIGHT-@radius*2 then @yvel *= -1
     [@x, @y] = [nx, ny]
-  bounceX: ->
-    @xvel *= -1
-  bounceY: ->
-    @yvel *= -1
+
   render: (ctx) ->
     ctx.fillStyle = Art.color @color...
     ctx.beginPath()
     ctx.arc @x+@radius, @y+@radius, @radius, 0, Math.PI*2, true
     ctx.fill()
 
+class Paddle
+  constructor: ->
+    [@width, @height] = [60, 10]
+    [@x, @y] = [(WIDTH-@width)/2, HEIGHT-20]
+
+  render: (ctx) ->
+    radius = @height/2
+    ctx.beginPath()
+    ctx.moveTo(@x, @y+radius)
+    ctx.lineTo(@x, @y+@height-radius)
+    ctx.quadraticCurveTo(@x, @y+@height, @x+radius, @y+@height)
+    ctx.lineTo(@x+@width-radius, @y+@height)
+    ctx.quadraticCurveTo(@x+@width, @y+@height, @x+@width, @y+@height-radius)
+    ctx.lineTo(@x+@width, @y+radius)
+    ctx.quadraticCurveTo(@x+@width, @y, @x+@width-radius, @y)
+    ctx.lineTo(@x+radius, @y)
+    ctx.quadraticCurveTo(@x, @y, @x, @y+radius)
+    ctx.closePath()
+    ctx.fillStyle = "#cccccc"
+    ctx.strokeStyle = "#ffffff"
+    ctx.fill()
+    ctx.stroke()
+
 class HZK
   constructor: ->
     @ticks = 0
-
   init: (@mgr) ->
-    @ctx = @mgr.ctx
-    @ball = new Ball(20, 20, @mgr.width, @mgr.height)
+    @ctx  = @mgr.ctx
+    @ball = new Ball 20, 20
+    @paddle = new Paddle()
+
   tick: ->
     ++@ticks
     @ball.tick()
+  
   render: ->
     @ctx.fillStyle = "#ffffff"
     @ctx.clearRect 0, 0, @mgr.width, @mgr.height
     @ball.render @ctx
+    @paddle.render @ctx
 
 Art =
   randomColor: ->
     c = -> Math.floor(Math.random()*255)
     "rgb(#{c()},#{c()},#{c()})"
-  color: (r, g, b) -> 
-    "rgb(#{r},#{g},#{b})"
+  color: (r, g, b) -> "rgb(#{r},#{g},#{b})"
+
   hslToRGB: (h, s, l) ->
-    if s is 0
-      [Math.floor(255*l), Math.floor(255*l), Math.floor(255*l)]
+    if s is 0 then [Math.floor(255*l), Math.floor(255*l), Math.floor(255*l)]
     else
       convertHue = (p, q, t) ->
         t += 1 if t < 0
         t -= 1 if t > 1
-        if t < 1/6
+        if t < 1/6 
           p+(q-p)*6*t
         else if t < 1/2
           q
@@ -131,47 +141,18 @@ Art =
       h = s = 0
     else
       d = max-min
-      if l > 0.5
-        s = d/(2-max-min)
-      else 
-        s = d/(max + min)
+      if l > 0.5 then s = d/(2-max-min)
+      else s = d/(max + min)
       switch max
         when rf then h = (g-b)/d + (if g < b then 6 else 0)
         when gf then h = (b-r)/d + 2
         when bf then h = (r-g)/d + 4
       h /= 6
     [h, s, l]
-
-  circle: (ctx, x, y, r, stroke=false, fill=true) ->
-    ctx.beginPath()
-    ctx.arc x, y, r, 0, Math.PI*2, true
-    ctx.closePath()
-    ctx.fill() if fill
-    ctx.stroke() if stroke
-
-  roundedRect: (ctx, x, y, w, h, rad, stroke=false, fill=true) ->
-    ctx.beginPath()
-    ctx.moveTo(x, y+radius)
-    ctx.lineTo(x, y+height-radius)
-    ctx.quadraticCurveTo(x, y+height, x+radius, y+height)
-    ctx.lineTo(x+width-radius, y+height)
-    ctx.quadraticCurveTo(x+width, y+height, x+width, y+height-radius)
-    ctx.lineTo(x+width, y+radius)
-    ctx.quadraticCurveTo(x+width, y, x+width-radius, y)
-    ctx.lineTo(x+radius, y)
-    ctx.quadraticCurveTo(x, y, x, y + radius)
-    ctx.closePath()
-    ctx.fill() if fill
-    ctx.stroke() if stroke
-
-  clear: (ctx) ->
-    ctx.clearRect 0, 0, WIDTH, HEIGHT
-
-  rect: (ctx, x, y, w, h, stroke=false, fill=true) ->
-    ctx.fillRect x, y, w, h if fill
-    ctx.strokeRect x, y, w, h if stroke
-
-
+  darker: (c) ->
+    c2 = Art.rgbToHSL c...
+    c2[2] = Math.min(1, Math.max(0, c2[2] - 0.1))
+    Art.hslToRGB c2...
 
 window.addEventListener "load", ->
   m = new Game new HZK()
