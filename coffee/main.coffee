@@ -1,11 +1,3 @@
-
-###
-
-HZK
-
-(c) 2012 Thom Chiovoloni
-###
-
 window.requestAnimFrame = 
   window.requestAnimationFrame or
   window.webkitRequestAnimationFrame or
@@ -16,50 +8,39 @@ window.requestAnimFrame =
     window.setTimeout callback, 16.666
 
 
+
 class Game
   constructor: (@game) ->
-    [@ticks, @tickDur] = [0, 0]
     @running = false
-
-  dispFPS: (fps)->
-    @fpsElem or= document.getElementById "fps"
-    @fpsElem.innerHTML = parseInt fps    
+    @fpsElem = document.getElementById "fps" 
 
   start: ->
     @canvas = document.getElementsByTagName("canvas")[0]
-    @width = @canvas.width
+    @width  = @canvas.width
     @height = @canvas.height
-    @ctx = @canvas.getContext "2d"
+    @ctx    = @canvas.getContext "2d"
     
-    @loopStart = new Date().getTime()
-    @lastTick = new Date().getTime()
+    @loopStart   = new Date().getTime()
+    @lastTick    = new Date().getTime()
     @lastFPSDisp = new Date().getTime()
 
     @running = true
     @game.init @ if @game.init?
     requestAnimFrame =>
       @loop()
-
-  stop: ->
-    @running = false
-
+      
   loop: ->
     @currentTick = (new Date()).getTime()
-    tickDur = @currentTick - @lastTick
-    fps = 1000/tickDur
+    fps = 1000/(@currentTick - @lastTick)
     if (new Date()).getTime() - @lastFPSDisp > 1000
-      @dispFPS fps
+      @fpsElem.innerHTML = parseInt fps
       @lastFPSDisp = new Date().getTime()
     if @running
       @game.tick()
       @game.render()
-      ++@ticks
       requestAnimFrame =>
         @loop()
     @lastTick = @currentTick
-
-
-
 
 class Ball
   constructor: (@x, @y, @width, @height) ->
@@ -99,8 +80,6 @@ class Ball
     ctx.beginPath()
     ctx.arc @x+@radius, @y+@radius, @radius, 0, Math.PI*2, true
     ctx.fill()
-
-
 
 class HZK
   constructor: ->
