@@ -14,7 +14,7 @@ mixin = (cls, obj) ->
   for k, v of obj
     cls.prototype[k] = v
 
-Rect = # mixin for things with x, y, width, and height properties
+Rect =
   move: (x, y) -> [@x, @y] = [x+@x, y+@y]
   moveTo: (nx, ny) -> [@x, @y] = [nx, ny]
   contains: (p) -> @x <= p.x <= @x+@width and @y <= p.y <= @y+@height
@@ -60,9 +60,9 @@ class Game
   constructor: (@game) ->
     @running = false
     @fpsElem = document.getElementById "fps" 
-    @canvas  = document.getElementsByTagName("canvas")[0]
-    @ctx     = @canvas.getContext "2d"
-    @input   = new InputHandler()
+    @canvas = document.getElementsByTagName("canvas")[0]
+    @ctx = @canvas.getContext "2d"
+    @input = new InputHandler()
   start: ->
     @lastTick    = new Date().getTime()
     @lastFPSDisp = new Date().getTime()
@@ -81,32 +81,14 @@ class Game
       requestAnimFrame => @loop()
     @lastTick = currentTick
 
-class Ball
-  mixin @, Rect
-  constructor: (@x, @y, @radius) ->
-    [@width, @height] = [@radius*2, @radius*2]
-    [@xvel, @yvel] = [3,3]
-    @color = [255,0,0]
-  tick: ->
-    [nx, ny] = [@x + @xvel, @y + @yvel]
-    if nx < 0 or nx > WIDTH-@radius*2 then @xvel *= -1
-    else if ny < 0 or ny > HEIGHT-@radius*2 then @yvel *= -1
-    @moveTo nx, ny
-  render: (ctx) ->
-    ctx.fillStyle = Art.color @color...
-    ctx.beginPath()
-    ctx.arc @x+@radius, @y+@radius, @radius, 0, Math.PI*2, true
-    ctx.fill()
-
 class Paddle
   mixin @, Rect
   constructor: (@input) ->
     [@width, @height] = [60, 10]
     [@x, @y] = [(WIDTH-@width)/2, HEIGHT-20]
-  tick: -> 
-    dx = 0
-    if @input.right then @move 5, 0
-    else if @input.left then @move -5, 0
+  tick: ->
+    if @input.right then @move 7, 0
+    else if @input.left then @move -7, 0
     if @x+@width > WIDTH then @x = WIDTH-@width
     else if @x < 0 then @x = 0
   render: (ctx) ->
@@ -123,7 +105,7 @@ class Paddle
     ctx.lineTo(@x+radius, @y)
     ctx.quadraticCurveTo(@x, @y, @x, @y+radius)
     ctx.closePath()
-    ctx.fillStyle = "#cccccc"
+    ctx.fillStyle = "#888888"
     ctx.strokeStyle = "#ffffff"
     ctx.fill()
     ctx.stroke()
@@ -132,33 +114,64 @@ class Brick
   mixin @, Rect
   constructor: (@x, @y, @width, @height, hsl) ->
     @color = Art.hslToRGB hsl...
-    hsl[2] = Math.min 0, hsl[2]-0.1
+    hsl[2] = Math.max 0, hsl[2]*0.8
     @outline = Art.hslToRGB hsl...
   render: (@ctx) ->
     @ctx.fillStyle = Art.color @color...
     @ctx.strokeStyle = Art.color @outline...
-    @ctx.strokeWidth = 2
+    @ctx.lineWidth = 2
     @ctx.fillRect @x, @y, @width, @height
-    @ctx.strokeRect @x, @y, @width, @height
+    @ctx.strokeRect @x+1, @y+1, @width-2, @height-2
+
+class Ball
+  mixin @, Rect
+  constructor: (@x, @y, @radius) ->
+    [@width, @height] = [@radius*2, @radius*2]
+    [@xvel, @yvel] = [3,3]
+    @color = [255,0,0]
+  tick: ->
+    [nx, ny] = [@x + @xvel, @y + @yvel]
+    if nx < 0 or nx > WIDTH-@width then @xvel *= -1
+    else if ny < 0 or ny > HEIGHT-@height then @yvel *= -1
+    @moveTo nx, ny
+  render: (ctx) ->
+    ctx.fillStyle = Art.color @color...
+    ctx.beginPath()
+    ctx.arc @x+@radius, @y+@radius, @radius, 0, Math.PI*2, true
+    ctx.fill()
+  bounce: (brick) ->
+    return @xvel *= -1 if brick.x > @x+@radius or brick.x+brick.width < @x+@radius
+    return @yvel *= -1 if brick.y > @y+@radius or brick.y+brick.height < @y+@radius
 
 class Breakout
   constructor: ->
   init: (@mgr) ->
-    @ctx    = @mgr.ctx
-    @ball   = new Ball 20, 20, 6
+    @ctx = @mgr.ctx
     @paddle = new Paddle @mgr.input
+    @start(1)
+  start:  ->
+    @ball = new Ball 200, 200, 6
     @bricks = []
-    cols = @genCols
-    for j in [0..3]
-      for i in [0..10]
-        @bricks.push new Brick(i*72, j*10, 72, 10, [Math.random()])
+    cols = @genColors()
+    for j in [0...4]
+      for i in [0...10]
+        @bricks.push new Brick(i*72, j*20, 72, 20, (cols[(i+j)%10]))
+  genColors: ->
+    s = 0.6 + Math.random() * 0.4
+    l = 0.4 + Math.random() * 0.3
+    [Math.random(), s, l] for i in [0...10]
   tick: ->
     @ball.tick()
     @paddle.tick()
-    if @paddle.intersects @ball then @ball.yvel *= -1
+    @ball.yvel = -1*Math.abs(@ball.yvel) if @paddle.intersects @ball
+    @bricks = @bricks.filter (brick) =>
+                return true unless brick.intersects @ball
+                @ball.bounce brick
+                false
   render: ->
     @ctx.fillStyle = "#ffffff"
     @ctx.clearRect 0, 0, WIDTH, HEIGHT
+    brick.render(@ctx) for brick in @bricks
     @ball.render @ctx
     @paddle.render @ctx
 
