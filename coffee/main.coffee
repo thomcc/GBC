@@ -10,56 +10,88 @@ window.requestAnimFrame =
 WIDTH = 720
 HEIGHT = 480
 
+mixin = (cls, obj) ->
+  for k, v of obj
+    cls.prototype[k] = v
+
+Rect = # mixin for things with x, y, width, and height properties
+  move: (x, y) -> [@x, @y] = [x+@x, y+@y]
+  moveTo: (nx, ny) -> [@x, @y] = [nx, ny]
+  contains: (p) -> @x <= p.x <= @x+@width and @y <= p.y <= @y+@height
+  intersects: (r) ->
+    ((r.x <= @x <= r.x+r.width)  or (@x <= r.x <= @x+@width)) and
+    ((r.y <= @y <= r.y+r.height) or (@y <= r.y <= @y+@height))
+
+Art =
+  color: (r, g, b) -> "rgb(#{r},#{g},#{b})"
+  hslToRGB: (h, s, l) ->
+    if s is 0 then [Math.floor(255*l), Math.floor(255*l), Math.floor(255*l)]
+    else
+      convertHue = (p, q, t) ->
+        t += 1 if t < 0
+        t -= 1 if t > 1
+        if t < 1/6 then p+(q-p)*6*t
+        else if t < 1/2 then q
+        else if t < 2/3 then p + (q-p)*(2/3-t)*6
+        else p
+      q = if l < 0.5 then l*(1+s) else (l+s-l*s)
+      p = 2*l-q
+      r = convertHue p, q, h+1/3
+      g = convertHue p, q, h
+      b = convertHue p, q, h-1/3
+      [Math.floor(r*255), Math.floor(g*255), Math.floor(b*255)]
+  rgbToHSL: (r, g, b) ->
+    [rf, gf, bf] = [r/255, g/255, b/255]
+    [max, min]   = [Math.max(rf, gf, bf), Math.min(rf, gf, bf)]
+    [h, s, l]    = [0, 0, (max+min)/2]
+    if max is min then h = s = 0
+    else
+      d = max-min
+      if l > 0.5 then s = d/(2-max-min)
+      else s = d/(max + min)
+      switch max
+        when rf then h = (g-b)/d + (if g < b then 6 else 0)
+        when gf then h = (b-r)/d + 2
+        when bf then h = (r-g)/d + 4
+      h /= 6
+    [h, s, l]
+
 class Game
   constructor: (@game) ->
     @running = false
     @fpsElem = document.getElementById "fps" 
-
+    @canvas  = document.getElementsByTagName("canvas")[0]
+    @ctx     = @canvas.getContext "2d"
+    @input   = new InputHandler()
   start: ->
-    @canvas = document.getElementsByTagName("canvas")[0]
-    @width  = @canvas.width
-    @height = @canvas.height
-    @ctx    = @canvas.getContext "2d"
-    @loopStart   = new Date().getTime()
     @lastTick    = new Date().getTime()
     @lastFPSDisp = new Date().getTime()
     @running = true
     @game.init @ if @game.init?
-    requestAnimFrame =>
-      @loop()
-
+    requestAnimFrame => @loop()
   loop: ->
-    @currentTick = (new Date()).getTime()
-    fps = 1000/(@currentTick - @lastTick)
+    currentTick = (new Date()).getTime()
+    fps = 1000/(currentTick - @lastTick)
     if (new Date()).getTime() - @lastFPSDisp > 1000
       @fpsElem.innerHTML = parseInt fps
       @lastFPSDisp = new Date().getTime()
     if @running
       @game.tick()
       @game.render()
-      requestAnimFrame =>
-        @loop()
-    @lastTick = @currentTick
+      requestAnimFrame => @loop()
+    @lastTick = currentTick
 
 class Ball
-  constructor: (@x, @y) ->
-    @radius = 6
+  mixin @, Rect
+  constructor: (@x, @y, @radius) ->
+    [@width, @height] = [@radius*2, @radius*2]
     [@xvel, @yvel] = [3,3]
     @color = [255,0,0]
-    @ticks=0
-
-  shiftColor: ->
-    h = (@ticks % 360)/360
-    @color = Art.hslToRGB h, 1, 0.5
-
   tick: ->
-    @ticks++
-    @shiftColor()
     [nx, ny] = [@x + @xvel, @y + @yvel]
     if nx < 0 or nx > WIDTH-@radius*2 then @xvel *= -1
     else if ny < 0 or ny > HEIGHT-@radius*2 then @yvel *= -1
-    [@x, @y] = [nx, ny]
-
+    @moveTo nx, ny
   render: (ctx) ->
     ctx.fillStyle = Art.color @color...
     ctx.beginPath()
@@ -67,11 +99,18 @@ class Ball
     ctx.fill()
 
 class Paddle
-  constructor: ->
+  mixin @, Rect
+  constructor: (@input) ->
     [@width, @height] = [60, 10]
     [@x, @y] = [(WIDTH-@width)/2, HEIGHT-20]
-
+  tick: -> 
+    dx = 0
+    if @input.right then @move 5, 0
+    else if @input.left then @move -5, 0
+    if @x+@width > WIDTH then @x = WIDTH-@width
+    else if @x < 0 then @x = 0
   render: (ctx) ->
+    # draw rounded rectangle
     radius = @height/2
     ctx.beginPath()
     ctx.moveTo(@x, @y+radius)
@@ -89,72 +128,52 @@ class Paddle
     ctx.fill()
     ctx.stroke()
 
-class HZK
-  constructor: ->
-    @ticks = 0
-  init: (@mgr) ->
-    @ctx  = @mgr.ctx
-    @ball = new Ball 20, 20
-    @paddle = new Paddle()
+class Brick
+  mixin @, Rect
+  constructor: (@x, @y, @width, @height, hsl) ->
+    @color = Art.hslToRGB hsl...
+    hsl[2] = Math.min 0, hsl[2]-0.1
+    @outline = Art.hslToRGB hsl...
+  render: (@ctx) ->
+    @ctx.fillStyle = Art.color @color...
+    @ctx.strokeStyle = Art.color @outline...
+    @ctx.strokeWidth = 2
+    @ctx.fillRect @x, @y, @width, @height
+    @ctx.strokeRect @x, @y, @width, @height
 
+class Breakout
+  constructor: ->
+  init: (@mgr) ->
+    @ctx    = @mgr.ctx
+    @ball   = new Ball 20, 20, 6
+    @paddle = new Paddle @mgr.input
+    @bricks = []
+    cols = @genCols
+    for j in [0..3]
+      for i in [0..10]
+        @bricks.push new Brick(i*72, j*10, 72, 10, [Math.random()])
   tick: ->
-    ++@ticks
     @ball.tick()
-  
+    @paddle.tick()
+    if @paddle.intersects @ball then @ball.yvel *= -1
   render: ->
     @ctx.fillStyle = "#ffffff"
-    @ctx.clearRect 0, 0, @mgr.width, @mgr.height
+    @ctx.clearRect 0, 0, WIDTH, HEIGHT
     @ball.render @ctx
     @paddle.render @ctx
 
-Art =
-  randomColor: ->
-    c = -> Math.floor(Math.random()*255)
-    "rgb(#{c()},#{c()},#{c()})"
-  color: (r, g, b) -> "rgb(#{r},#{g},#{b})"
+class InputHandler
+  constructor: ->
+    @right = @left = false
+    window.addEventListener "keydown", (evt) => @onKey evt.keyCode, true
+    window.addEventListener "keyup",   (evt) => @onKey evt.keyCode, false
+  onKey: (code, pressed) ->
+    switch code
+      when 39, 68 then @right = pressed
+      when 37, 65 then @left  = pressed
 
-  hslToRGB: (h, s, l) ->
-    if s is 0 then [Math.floor(255*l), Math.floor(255*l), Math.floor(255*l)]
-    else
-      convertHue = (p, q, t) ->
-        t += 1 if t < 0
-        t -= 1 if t > 1
-        if t < 1/6 
-          p+(q-p)*6*t
-        else if t < 1/2
-          q
-        else if t < 2/3
-          p + (q-p)*(2/3-t)*6
-        else
-          p
-      q = if l < 0.5 then l*(1+s) else (l+s-l*s)
-      p = 2*l-q
-      r = convertHue p, q, h+1/3
-      g = convertHue p, q, h
-      b = convertHue p, q, h-1/3
-      [Math.floor(r*255), Math.floor(g*255), Math.floor(b*255)]
-  rgbToHSL: (r, g, b) ->
-    [rf, gf, bf] = [r/255, g/255, b/255]
-    [max, min]   = [Math.max(rf, gf, bf), Math.min(rf, gf, bf)]
-    [h, s, l]    = [0, 0, (max+min)/2]
-    if max is min
-      h = s = 0
-    else
-      d = max-min
-      if l > 0.5 then s = d/(2-max-min)
-      else s = d/(max + min)
-      switch max
-        when rf then h = (g-b)/d + (if g < b then 6 else 0)
-        when gf then h = (b-r)/d + 2
-        when bf then h = (r-g)/d + 4
-      h /= 6
-    [h, s, l]
-  darker: (c) ->
-    c2 = Art.rgbToHSL c...
-    c2[2] = Math.min(1, Math.max(0, c2[2] - 0.1))
-    Art.hslToRGB c2...
 
-window.addEventListener "load", ->
-  m = new Game new HZK()
-  m.start()
+
+window.addEventListener "load", -> m = new Game(new Breakout()).start()
+
 
