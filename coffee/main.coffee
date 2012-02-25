@@ -69,7 +69,7 @@ class Paddle
   constructor: (@input) ->
     [@width, @height] = [80, 10]
     [@x, @y] = [(WIDTH-@width)/2, HEIGHT-30]
-    @speed = 8
+    @speed = 5
   tick: ->
     if @input.right then @move @speed, 0
     else if @input.left then @move -1*@speed, 0
@@ -111,7 +111,7 @@ class Ball
   mixin @, Rect
   constructor: (@x, @y, @radius) ->
     [@width, @height] = [@radius*2, @radius*2]
-    [@xvel, @yvel] = [4,4]
+    [@xvel, @yvel] = [3,3]
     @color = [255,0,0]
     @hitBottom = false
   tick: ->
