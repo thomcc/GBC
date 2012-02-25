@@ -1,5 +1,6 @@
 (function() {
-  var Art, Ball, Breakout, Brick, Game, HEIGHT, InputHandler, Paddle, Rect, WIDTH, mixin;
+  var Art, Ball, Breakout, Brick, Game, HEIGHT, InputHandler, Paddle, Rect, SoundManager, WIDTH, mixin,
+    __slice = Array.prototype.slice;
 
   window.requestAnimFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function(callback, element) {
     return window.setTimeout(callback, 16.666);
@@ -49,6 +50,28 @@
     }
   };
 
+  SoundManager = (function() {
+
+    function SoundManager() {
+      var s, soundNames, _i, _len;
+      soundNames = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      this.sounds = {};
+      for (_i = 0, _len = soundNames.length; _i < _len; _i++) {
+        s = soundNames[_i];
+        this.sounds[s] = new Audio("snd/" + s + ".wav");
+      }
+      window.theSoundManager = this;
+    }
+
+    SoundManager.prototype.play = function(snd) {
+      var _ref;
+      return (_ref = this.sounds[snd]) != null ? _ref.play() : void 0;
+    };
+
+    return SoundManager;
+
+  })();
+
   Game = (function() {
 
     function Game(game) {
@@ -57,7 +80,8 @@
       this.fpsElem = document.getElementById("fps");
       this.canvas = document.getElementsByTagName("canvas")[0];
       this.ctx = this.canvas.getContext("2d");
-      this.input = new InputHandler();
+      this.input = new InputHandler;
+      new SoundManager('destroybrick', 'lose', 'paddlebounce', 'wallbounce', 'win');
     }
 
     Game.prototype.start = function() {
@@ -74,9 +98,9 @@
     Game.prototype.loop = function() {
       var currentTick, fps,
         _this = this;
-      currentTick = (new Date()).getTime();
+      currentTick = new Date().getTime();
       fps = 1000 / (currentTick - this.lastTick);
-      if ((new Date()).getTime() - this.lastFPSDisp > 1000) {
+      if (new Date().getTime() - this.lastFPSDisp > 1000) {
         this.fpsElem.innerHTML = parseInt(fps);
         this.lastFPSDisp = new Date().getTime();
       }
@@ -153,7 +177,7 @@
       this.width = width;
       this.height = height;
       this.color = Art.hslColor.apply(Art, hsl);
-      hsl[2] = Math.max(0, hsl[2] * 0.8);
+      hsl[2] = hsl[2] * 0.8;
       this.outline = Art.hslColor.apply(Art, hsl);
     }
 
@@ -190,8 +214,10 @@
       _ref = [this.x + this.xvel, this.y + this.yvel], nx = _ref[0], ny = _ref[1];
       if (nx < 0 || nx > WIDTH - this.width) {
         this.xvel *= -1;
+        window.theSoundManager.play("wallbounce");
       } else if (ny < 0) {
         this.yvel *= -1;
+        window.theSoundManager.play("wallbounce");
       } else if (ny > HEIGHT - this.height) {
         this.yvel *= -1;
         this.hitBottom = true;
@@ -207,6 +233,7 @@
     };
 
     Ball.prototype.bounce = function(brick) {
+      window.theSoundManager.play("destroybrick");
       if (brick.x > this.x + this.radius || brick.x + brick.width < this.x + this.radius) {
         return this.xvel *= -1;
       }
@@ -271,17 +298,28 @@
         this.paddle.tick();
         if (this.paddle.intersects(this.ball)) {
           this.ball.yvel = -1 * Math.abs(this.ball.yvel);
+          window.theSoundManager.play("paddlebounce");
         }
         this.bricks = this.bricks.filter(function(brick) {
           if (!brick.intersects(_this.ball)) return true;
           _this.ball.bounce(brick);
           return false;
         });
-        if (this.ball.hitBottom) this.lost = true;
-        if (this.bricks.length === 0) return this.won = true;
-      } else {
-        if (this.input.select) return this.start(this.lost ? 1 : this.level + 1);
+        if (this.ball.hitBottom) this.lose();
+        if (this.bricks.length === 0) return this.win();
+      } else if (this.input.select) {
+        return this.start(this.lost ? 1 : this.level + 1);
       }
+    };
+
+    Breakout.prototype.lose = function() {
+      this.lost = true;
+      return window.theSoundManager.play("lose");
+    };
+
+    Breakout.prototype.win = function() {
+      this.won = true;
+      return window.theSoundManager.play("win");
     };
 
     Breakout.prototype.render = function() {
@@ -341,7 +379,8 @@
 
   window.addEventListener("load", function() {
     var m;
-    return m = new Game(new Breakout()).start();
+    m = new Game(new Breakout);
+    return m.start();
   });
 
 }).call(this);
