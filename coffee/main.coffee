@@ -151,16 +151,16 @@ class Ball
 class Breakout
   constructor: ->
   init: (@mgr) ->
-    @won = @lost = false
     {ctx: @ctx, input: @input} = @mgr
     @paddle = new Paddle @input
     @start 1
-  start:  ->
+  start: (@level) ->
     @ball = new Ball 200, 200, 6
     @bricks = []
     [bw, bh] = [72, 20]
     cols = do @genColors
-    for j in [0...4]
+    @won = @lost = false
+    for j in [0...(2+@level)]
       for i in [0...10]
         @bricks.push new Brick i*bw, j*bh, bw, bh, cols[(i+j)%10]
   genColors: ->
@@ -178,6 +178,9 @@ class Breakout
         false
       @lost = true if @ball.hitBottom
       @won = true if @bricks.length is 0
+    else
+      if @input.select
+        @start if @lost then 1 else @level+1
   render: ->
     @ctx.clearRect 0, 0, WIDTH, HEIGHT
     brick.render @ctx for brick in @bricks
@@ -187,17 +190,21 @@ class Breakout
       [str, col] = if @won then ["You Win!", "green"] else ["You Lose!", "red"]
       @ctx.fillStyle = col
       @ctx.font = "50pt sans-serif"
-      @ctx.fillText str, (WIDTH-@ctx.measureText(str).width)/2, (HEIGHT-50)/2
+      ty = (HEIGHT-50)/2
+      @ctx.fillText str, (WIDTH-@ctx.measureText(str).width)/2, ty
+      @ctx.fillText "press space.", (WIDTH-@ctx.measureText("press space.").width)/2, ty+100
+
 
 class InputHandler
   constructor: ->
-    @right = @left = false
+    @right = @left = @space = false
     window.addEventListener "keydown", (evt) => @onKey evt.keyCode, true
     window.addEventListener "keyup",   (evt) => @onKey evt.keyCode, false
   onKey: (code, pressed) ->
     switch code
-      when 39, 68 then @right = pressed
-      when 37, 65 then @left  = pressed
+      when 39, 68 then @right  = pressed
+      when 37, 65 then @left   = pressed
+      when 32, 13 then @select = pressed
 
 
 
