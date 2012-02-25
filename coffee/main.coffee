@@ -26,6 +26,14 @@ Art =
   color: (r, g, b) -> "rgb(#{r},#{g},#{b})"
   hslColor: (h, s, l) -> "hsl(#{h*360},#{s*100}%,#{l*100}%)"
 
+class SoundManager
+  constructor: (soundNames...) ->
+    @sounds = {}
+    @sounds[s] = new Audio "snd/#{s}.wav" for s in soundNames
+    window.theSoundManager = this
+  play: (snd) ->
+    @sounds[snd]?.play()
+
 class Game
   constructor: (@game) ->
     @running = false
@@ -33,6 +41,7 @@ class Game
     @canvas = document.getElementsByTagName("canvas")[0]
     @ctx = @canvas.getContext "2d"
     @input = new InputHandler
+    new SoundManager 'destroybrick', 'lose', 'paddlebounce', 'wallbounce', 'win'
   start: ->
     @lastTick    = new Date().getTime()
     @lastFPSDisp = new Date().getTime()
@@ -103,8 +112,12 @@ class Ball
     @hitBottom = false
   tick: ->
     [nx, ny] = [@x + @xvel, @y + @yvel]
-    if nx < 0 or nx > WIDTH-@width then @xvel *= -1
-    else if ny < 0 then @yvel *= -1
+    if nx < 0 or nx > WIDTH-@width 
+      @xvel *= -1
+      window.theSoundManager.play "wallbounce"
+    else if ny < 0 
+      @yvel *= -1
+      window.theSoundManager.play "wallbounce"
     else if ny > HEIGHT-@height
       @yvel *= -1
       @hitBottom = true
@@ -115,6 +128,7 @@ class Ball
     ctx.arc @x+@radius, @y+@radius, @radius, 0, Math.PI*2, true
     do ctx.fill
   bounce: (brick) ->
+    window.theSoundManager.play "destroybrick"
     return @xvel *= -1 if brick.x > @x+@radius or brick.x+brick.width < @x+@radius
     return @yvel *= -1 if brick.y > @y+@radius or brick.y+brick.height < @y+@radius
 
@@ -141,15 +155,23 @@ class Breakout
     unless @won or @lost
       do @ball.tick
       do @paddle.tick
-      @ball.yvel = -1*Math.abs(@ball.yvel) if @paddle.intersects @ball
+      if @paddle.intersects @ball
+        @ball.yvel = -1*Math.abs @ball.yvel
+        window.theSoundManager.play "paddlebounce"
       @bricks = @bricks.filter (brick) =>
         return true unless brick.intersects @ball
         @ball.bounce brick
         false
-      @lost = true if @ball.hitBottom
-      @won = true if @bricks.length is 0
+      do @lose if @ball.hitBottom
+      do @win if @bricks.length is 0
     else if @input.select
       @start if @lost then 1 else @level+1
+  lose: ->
+    @lost = true
+    window.theSoundManager.play "lose"
+  win: ->
+    @won = true
+    window.theSoundManager.play "win"
   render: ->
     @ctx.clearRect 0, 0, WIDTH, HEIGHT
     brick.render @ctx for brick in @bricks
