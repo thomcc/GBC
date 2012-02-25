@@ -81,6 +81,7 @@
       this.canvas = document.getElementsByTagName("canvas")[0];
       this.ctx = this.canvas.getContext("2d");
       this.input = new InputHandler;
+      this.needed = 0;
       new SoundManager('destroybrick', 'lose', 'paddlebounce', 'wallbounce', 'win');
     }
 
@@ -100,12 +101,16 @@
         _this = this;
       currentTick = new Date().getTime();
       fps = 1000 / (currentTick - this.lastTick);
+      this.needed = (currentTick - this.lastTick) * 60 / 1000;
       if (new Date().getTime() - this.lastFPSDisp > 1000) {
         this.fpsElem.innerHTML = parseInt(fps);
         this.lastFPSDisp = new Date().getTime();
       }
       if (this.running) {
-        this.game.tick();
+        while (this.needed > 0) {
+          this.game.tick();
+          --this.needed;
+        }
         this.game.render();
         requestAnimFrame(function() {
           return _this.loop();
@@ -127,7 +132,7 @@
       this.input = input;
       _ref = [80, 10], this.width = _ref[0], this.height = _ref[1];
       _ref2 = [(WIDTH - this.width) / 2, HEIGHT - 30], this.x = _ref2[0], this.y = _ref2[1];
-      this.speed = 8;
+      this.speed = 5;
     }
 
     Paddle.prototype.tick = function() {
@@ -204,7 +209,7 @@
       this.y = y;
       this.radius = radius;
       _ref = [this.radius * 2, this.radius * 2], this.width = _ref[0], this.height = _ref[1];
-      _ref2 = [4, 4], this.xvel = _ref2[0], this.yvel = _ref2[1];
+      _ref2 = [3, 3], this.xvel = _ref2[0], this.yvel = _ref2[1];
       this.color = [255, 0, 0];
       this.hitBottom = false;
     }
