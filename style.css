@@ -13,7 +13,7 @@ body {
   padding: 0px; 
   width: 720px;
   margin: 0px auto;
-  background: #050c0f;
+  background: #222;
 }
 
 html, canvas, img {
@@ -21,7 +21,7 @@ html, canvas, img {
   image-rendering: optimize-contrast;
   image-rendering: -moz-crisp-edges;
   image-rendering: -webkit-optimize-contrast;
-  -ms-interpolation-mode: nearest-neighbor; 
+  -ms-interpolation-mode: nearest-neighbor;
 }
 
 #fps, #info {
