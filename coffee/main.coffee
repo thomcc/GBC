@@ -17,10 +17,10 @@ mixin = (cls, obj) ->
 Rect =
   move: (x, y) -> [@x, @y] = [x+@x, y+@y]
   moveTo: (nx, ny) -> [@x, @y] = [nx, ny]
-  contains: (p) -> @x <= p.x <= @x+@width and @y <= p.y <= @y+@height
-  intersects: (r) ->
-    ((r.x <= @x <= r.x+r.width)  or (@x <= r.x <= @x+@width)) and
-    ((r.y <= @y <= r.y+r.height) or (@y <= r.y <= @y+@height))
+  contains: ({ x: x, y: y }) -> @x <= x <= @x+@width and @y <= y <= @y+@height
+  intersects: ({ x: x, y: y, width: w, height: h }) ->
+    ((x <= @x <= x+w) or (@x <= x <= @x+@width)) and
+    ((y <= @y <= y+h) or (@y <= y <= @y+@height))
 
 Art =
   color: (r, g, b) -> "rgb(#{r},#{g},#{b})"
@@ -151,41 +151,43 @@ class Ball
 class Breakout
   constructor: ->
   init: (@mgr) ->
-    @ctx = @mgr.ctx
-    @input = @mgr.input
+    @won = @lost = false
+    {ctx: @ctx, input: @input} = @mgr
     @paddle = new Paddle @input
-    @ticking = true
-    @start(1)
+    @start 1
   start:  ->
     @ball = new Ball 200, 200, 6
     @bricks = []
     [bw, bh] = [72, 20]
-    cols = @genColors()
+    cols = do @genColors
     for j in [0...4]
       for i in [0...10]
-        @bricks.push new Brick(i*bw, j*bh, bw, bh, (cols[(i+j)%10]))
+        @bricks.push new Brick i*bw, j*bh, bw, bh, cols[(i+j)%10]
   genColors: ->
     s = 0.6 + Math.random() * 0.4
     l = 0.4 + Math.random() * 0.3
     [Math.random(), s, l] for i in [0...10]
   tick: ->
-    if @ticking
-      @ball.tick()
-      @paddle.tick()
+    unless @won or @lost
+      do @ball.tick
+      do @paddle.tick
       @ball.yvel = -1*Math.abs(@ball.yvel) if @paddle.intersects @ball
       @bricks = @bricks.filter (brick) =>
         return true unless brick.intersects @ball
         @ball.bounce brick
         false
-      @lose() if @ball.hitBottom
-      @win() if @bricks.length is 0
-    
+      @lost = true if @ball.hitBottom
+      @won = true if @bricks.length is 0
   render: ->
-    @ctx.fillStyle = "#ffffff"
     @ctx.clearRect 0, 0, WIDTH, HEIGHT
-    brick.render(@ctx) for brick in @bricks
+    brick.render @ctx for brick in @bricks
     @ball.render @ctx
     @paddle.render @ctx
+    if @won or @lost
+      [str, col] = if @won then ["You Win!", "green"] else ["You Lose!", "red"]
+      @ctx.fillStyle = col
+      @ctx.font = "50pt sans-serif"
+      @ctx.fillText str, (WIDTH-@ctx.measureText(str).width)/2, (HEIGHT-50)/2
 
 class InputHandler
   constructor: ->
