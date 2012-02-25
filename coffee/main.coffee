@@ -84,11 +84,12 @@ class Game
 class Paddle
   mixin @, Rect
   constructor: (@input) ->
-    [@width, @height] = [60, 10]
-    [@x, @y] = [(WIDTH-@width)/2, HEIGHT-20]
+    [@width, @height] = [80, 10]
+    [@x, @y] = [(WIDTH-@width)/2, HEIGHT-30]
+    @speed = 8
   tick: ->
-    if @input.right then @move 7, 0
-    else if @input.left then @move -7, 0
+    if @input.right then @move @speed, 0
+    else if @input.left then @move -1*@speed, 0
     if @x+@width > WIDTH then @x = WIDTH-@width
     else if @x < 0 then @x = 0
   render: (ctx) ->
@@ -127,12 +128,16 @@ class Ball
   mixin @, Rect
   constructor: (@x, @y, @radius) ->
     [@width, @height] = [@radius*2, @radius*2]
-    [@xvel, @yvel] = [3,3]
+    [@xvel, @yvel] = [4,4]
     @color = [255,0,0]
+    @hitBottom = false
   tick: ->
     [nx, ny] = [@x + @xvel, @y + @yvel]
     if nx < 0 or nx > WIDTH-@width then @xvel *= -1
-    else if ny < 0 or ny > HEIGHT-@height then @yvel *= -1
+    else if ny < 0 then @yvel *= -1
+    else if ny > HEIGHT-@height
+      @yvel *= -1
+      @hitBottom = true
     @moveTo nx, ny
   render: (ctx) ->
     ctx.fillStyle = Art.color @color...
@@ -147,27 +152,34 @@ class Breakout
   constructor: ->
   init: (@mgr) ->
     @ctx = @mgr.ctx
-    @paddle = new Paddle @mgr.input
+    @input = @mgr.input
+    @paddle = new Paddle @input
+    @ticking = true
     @start(1)
   start:  ->
     @ball = new Ball 200, 200, 6
     @bricks = []
+    [bw, bh] = [72, 20]
     cols = @genColors()
     for j in [0...4]
       for i in [0...10]
-        @bricks.push new Brick(i*72, j*20, 72, 20, (cols[(i+j)%10]))
+        @bricks.push new Brick(i*bw, j*bh, bw, bh, (cols[(i+j)%10]))
   genColors: ->
     s = 0.6 + Math.random() * 0.4
     l = 0.4 + Math.random() * 0.3
     [Math.random(), s, l] for i in [0...10]
   tick: ->
-    @ball.tick()
-    @paddle.tick()
-    @ball.yvel = -1*Math.abs(@ball.yvel) if @paddle.intersects @ball
-    @bricks = @bricks.filter (brick) =>
-                return true unless brick.intersects @ball
-                @ball.bounce brick
-                false
+    if @ticking
+      @ball.tick()
+      @paddle.tick()
+      @ball.yvel = -1*Math.abs(@ball.yvel) if @paddle.intersects @ball
+      @bricks = @bricks.filter (brick) =>
+        return true unless brick.intersects @ball
+        @ball.bounce brick
+        false
+      @lose() if @ball.hitBottom
+      @win() if @bricks.length is 0
+    
   render: ->
     @ctx.fillStyle = "#ffffff"
     @ctx.clearRect 0, 0, WIDTH, HEIGHT
