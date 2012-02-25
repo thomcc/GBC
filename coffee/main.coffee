@@ -26,29 +26,38 @@ Art =
   color: (r, g, b) -> "rgb(#{r},#{g},#{b})"
   hslColor: (h, s, l) -> "hsl(#{h*360},#{s*100}%,#{l*100}%)"
 
+class SoundManager
+  constructor: (soundNames...) ->
+    @sounds = {}
+    @sounds[s] = new Audio "snd/#{s}.wav" for s in soundNames
+    window.theSoundManager = this
+  play: (snd) ->
+    @sounds[snd]?.play()
+
 class Game
   constructor: (@game) ->
     @running = false
     @fpsElem = document.getElementById "fps" 
     @canvas = document.getElementsByTagName("canvas")[0]
     @ctx = @canvas.getContext "2d"
-    @input = new InputHandler()
+    @input = new InputHandler
+    new SoundManager 'destroybrick', 'lose', 'paddlebounce', 'wallbounce', 'win'
   start: ->
     @lastTick    = new Date().getTime()
     @lastFPSDisp = new Date().getTime()
     @running = true
-    @game.init @ if @game.init?
-    requestAnimFrame => @loop()
+    @game.init this if @game.init?
+    requestAnimFrame => do @loop
   loop: ->
-    currentTick = (new Date()).getTime()
+    currentTick = new Date().getTime()
     fps = 1000/(currentTick - @lastTick)
-    if (new Date()).getTime() - @lastFPSDisp > 1000
+    if new Date().getTime() - @lastFPSDisp > 1000
       @fpsElem.innerHTML = parseInt fps
       @lastFPSDisp = new Date().getTime()
     if @running
-      @game.tick()
-      @game.render()
-      requestAnimFrame => @loop()
+      do @game.tick
+      do @game.render
+      requestAnimFrame => do @loop
     @lastTick = currentTick
 
 class Paddle
@@ -65,27 +74,27 @@ class Paddle
   render: (ctx) ->
     # draw rounded rectangle
     radius = @height/2
-    ctx.beginPath()
-    ctx.moveTo(@x, @y+radius)
-    ctx.lineTo(@x, @y+@height-radius)
-    ctx.quadraticCurveTo(@x, @y+@height, @x+radius, @y+@height)
-    ctx.lineTo(@x+@width-radius, @y+@height)
-    ctx.quadraticCurveTo(@x+@width, @y+@height, @x+@width, @y+@height-radius)
-    ctx.lineTo(@x+@width, @y+radius)
-    ctx.quadraticCurveTo(@x+@width, @y, @x+@width-radius, @y)
-    ctx.lineTo(@x+radius, @y)
-    ctx.quadraticCurveTo(@x, @y, @x, @y+radius)
-    ctx.closePath()
+    do ctx.beginPath
+    ctx.moveTo @x, @y+radius
+    ctx.lineTo @x, @y+@height-radius
+    ctx.quadraticCurveTo @x, @y+@height, @x+radius, @y+@height
+    ctx.lineTo @x+@width-radius, @y+@height
+    ctx.quadraticCurveTo @x+@width, @y+@height, @x+@width, @y+@height-radius
+    ctx.lineTo @x+@width, @y+radius
+    ctx.quadraticCurveTo @x+@width, @y, @x+@width-radius, @y
+    ctx.lineTo @x+radius, @y
+    ctx.quadraticCurveTo @x, @y, @x, @y+radius
+    do ctx.closePath
     ctx.fillStyle = "#888888"
     ctx.strokeStyle = "#ffffff"
-    ctx.fill()
-    ctx.stroke()
+    do ctx.fill
+    do ctx.stroke
 
 class Brick
   mixin @, Rect
   constructor: (@x, @y, @width, @height, hsl) ->
     @color = Art.hslColor hsl...
-    hsl[2] = Math.max 0, hsl[2]*0.8
+    hsl[2] = hsl[2]*0.8
     @outline = Art.hslColor hsl...
   render: (@ctx) ->
     @ctx.fillStyle = @color
@@ -103,18 +112,23 @@ class Ball
     @hitBottom = false
   tick: ->
     [nx, ny] = [@x + @xvel, @y + @yvel]
-    if nx < 0 or nx > WIDTH-@width then @xvel *= -1
-    else if ny < 0 then @yvel *= -1
+    if nx < 0 or nx > WIDTH-@width 
+      @xvel *= -1
+      window.theSoundManager.play "wallbounce"
+    else if ny < 0 
+      @yvel *= -1
+      window.theSoundManager.play "wallbounce"
     else if ny > HEIGHT-@height
       @yvel *= -1
       @hitBottom = true
     @moveTo nx, ny
   render: (ctx) ->
     ctx.fillStyle = Art.color @color...
-    ctx.beginPath()
+    do ctx.beginPath
     ctx.arc @x+@radius, @y+@radius, @radius, 0, Math.PI*2, true
-    ctx.fill()
+    do ctx.fill
   bounce: (brick) ->
+    window.theSoundManager.play "destroybrick"
     return @xvel *= -1 if brick.x > @x+@radius or brick.x+brick.width < @x+@radius
     return @yvel *= -1 if brick.y > @y+@radius or brick.y+brick.height < @y+@radius
 
@@ -141,16 +155,23 @@ class Breakout
     unless @won or @lost
       do @ball.tick
       do @paddle.tick
-      @ball.yvel = -1*Math.abs(@ball.yvel) if @paddle.intersects @ball
+      if @paddle.intersects @ball
+        @ball.yvel = -1*Math.abs @ball.yvel
+        window.theSoundManager.play "paddlebounce"
       @bricks = @bricks.filter (brick) =>
         return true unless brick.intersects @ball
         @ball.bounce brick
         false
-      @lost = true if @ball.hitBottom
-      @won = true if @bricks.length is 0
-    else
-      if @input.select
-        @start if @lost then 1 else @level+1
+      do @lose if @ball.hitBottom
+      do @win if @bricks.length is 0
+    else if @input.select
+      @start if @lost then 1 else @level+1
+  lose: ->
+    @lost = true
+    window.theSoundManager.play "lose"
+  win: ->
+    @won = true
+    window.theSoundManager.play "win"
   render: ->
     @ctx.clearRect 0, 0, WIDTH, HEIGHT
     brick.render @ctx for brick in @bricks
@@ -178,6 +199,8 @@ class InputHandler
 
 
 
-window.addEventListener "load", -> m = new Game(new Breakout()).start()
+window.addEventListener "load", -> 
+  m = new Game new Breakout
+  do m.start
 
 
