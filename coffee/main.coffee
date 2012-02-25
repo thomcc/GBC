@@ -41,6 +41,7 @@ class Game
     @canvas = document.getElementsByTagName("canvas")[0]
     @ctx = @canvas.getContext "2d"
     @input = new InputHandler
+    @needed = 0
     new SoundManager 'destroybrick', 'lose', 'paddlebounce', 'wallbounce', 'win'
   start: ->
     @lastTick    = new Date().getTime()
@@ -51,11 +52,14 @@ class Game
   loop: ->
     currentTick = new Date().getTime()
     fps = 1000/(currentTick - @lastTick)
+    @needed = (currentTick - @lastTick)*60/1000
     if new Date().getTime() - @lastFPSDisp > 1000
       @fpsElem.innerHTML = parseInt fps
       @lastFPSDisp = new Date().getTime()
     if @running
-      do @game.tick
+      while (@needed > 0)
+        do @game.tick
+        --@needed
       do @game.render
       requestAnimFrame => do @loop
     @lastTick = currentTick
