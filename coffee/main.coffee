@@ -24,37 +24,7 @@ Rect =
 
 Art =
   color: (r, g, b) -> "rgb(#{r},#{g},#{b})"
-  hslToRGB: (h, s, l) ->
-    if s is 0 then [Math.floor(255*l), Math.floor(255*l), Math.floor(255*l)]
-    else
-      convertHue = (p, q, t) ->
-        t += 1 if t < 0
-        t -= 1 if t > 1
-        if t < 1/6 then p+(q-p)*6*t
-        else if t < 1/2 then q
-        else if t < 2/3 then p + (q-p)*(2/3-t)*6
-        else p
-      q = if l < 0.5 then l*(1+s) else (l+s-l*s)
-      p = 2*l-q
-      r = convertHue p, q, h+1/3
-      g = convertHue p, q, h
-      b = convertHue p, q, h-1/3
-      [Math.floor(r*255), Math.floor(g*255), Math.floor(b*255)]
-  rgbToHSL: (r, g, b) ->
-    [rf, gf, bf] = [r/255, g/255, b/255]
-    [max, min]   = [Math.max(rf, gf, bf), Math.min(rf, gf, bf)]
-    [h, s, l]    = [0, 0, (max+min)/2]
-    if max is min then h = s = 0
-    else
-      d = max-min
-      if l > 0.5 then s = d/(2-max-min)
-      else s = d/(max + min)
-      switch max
-        when rf then h = (g-b)/d + (if g < b then 6 else 0)
-        when gf then h = (b-r)/d + 2
-        when bf then h = (r-g)/d + 4
-      h /= 6
-    [h, s, l]
+  hslColor: (h, s, l) -> "hsl(#{h*360},#{s*100}%,#{l*100}%)"
 
 class Game
   constructor: (@game) ->
@@ -114,12 +84,12 @@ class Paddle
 class Brick
   mixin @, Rect
   constructor: (@x, @y, @width, @height, hsl) ->
-    @color = Art.hslToRGB hsl...
+    @color = Art.hslColor hsl...
     hsl[2] = Math.max 0, hsl[2]*0.8
-    @outline = Art.hslToRGB hsl...
+    @outline = Art.hslColor hsl...
   render: (@ctx) ->
-    @ctx.fillStyle = Art.color @color...
-    @ctx.strokeStyle = Art.color @outline...
+    @ctx.fillStyle = @color
+    @ctx.strokeStyle = @outline
     @ctx.lineWidth = 2
     @ctx.fillRect @x, @y, @width, @height
     @ctx.strokeRect @x+1, @y+1, @width-2, @height-2
