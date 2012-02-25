@@ -28,13 +28,15 @@
       var _ref;
       return _ref = [nx, ny], this.x = _ref[0], this.y = _ref[1], _ref;
     },
-    contains: function(p) {
-      var _ref, _ref2;
-      return (this.x <= (_ref = p.x) && _ref <= this.x + this.width) && (this.y <= (_ref2 = p.y) && _ref2 <= this.y + this.height);
+    contains: function(_arg) {
+      var x, y;
+      x = _arg.x, y = _arg.y;
+      return (this.x <= x && x <= this.x + this.width) && (this.y <= y && y <= this.y + this.height);
     },
-    intersects: function(r) {
-      var _ref, _ref2, _ref3, _ref4;
-      return (((r.x <= (_ref = this.x) && _ref <= r.x + r.width)) || ((this.x <= (_ref2 = r.x) && _ref2 <= this.x + this.width))) && (((r.y <= (_ref3 = this.y) && _ref3 <= r.y + r.height)) || ((this.y <= (_ref4 = r.y) && _ref4 <= this.y + this.height)));
+    intersects: function(_arg) {
+      var h, w, x, y, _ref, _ref2;
+      x = _arg.x, y = _arg.y, w = _arg.width, h = _arg.height;
+      return (((x <= (_ref = this.x) && _ref <= x + w)) || ((this.x <= x && x <= this.x + this.width))) && (((y <= (_ref2 = this.y) && _ref2 <= y + h)) || ((this.y <= y && y <= this.y + this.height)));
     }
   };
 
@@ -42,59 +44,8 @@
     color: function(r, g, b) {
       return "rgb(" + r + "," + g + "," + b + ")";
     },
-    hslToRGB: function(h, s, l) {
-      var b, convertHue, g, p, q, r;
-      if (s === 0) {
-        return [Math.floor(255 * l), Math.floor(255 * l), Math.floor(255 * l)];
-      } else {
-        convertHue = function(p, q, t) {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) {
-            return p + (q - p) * 6 * t;
-          } else if (t < 1 / 2) {
-            return q;
-          } else if (t < 2 / 3) {
-            return p + (q - p) * (2 / 3 - t) * 6;
-          } else {
-            return p;
-          }
-        };
-        q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        p = 2 * l - q;
-        r = convertHue(p, q, h + 1 / 3);
-        g = convertHue(p, q, h);
-        b = convertHue(p, q, h - 1 / 3);
-        return [Math.floor(r * 255), Math.floor(g * 255), Math.floor(b * 255)];
-      }
-    },
-    rgbToHSL: function(r, g, b) {
-      var bf, d, gf, h, l, max, min, rf, s, _ref, _ref2, _ref3;
-      _ref = [r / 255, g / 255, b / 255], rf = _ref[0], gf = _ref[1], bf = _ref[2];
-      _ref2 = [Math.max(rf, gf, bf), Math.min(rf, gf, bf)], max = _ref2[0], min = _ref2[1];
-      _ref3 = [0, 0, (max + min) / 2], h = _ref3[0], s = _ref3[1], l = _ref3[2];
-      if (max === min) {
-        h = s = 0;
-      } else {
-        d = max - min;
-        if (l > 0.5) {
-          s = d / (2 - max - min);
-        } else {
-          s = d / (max + min);
-        }
-        switch (max) {
-          case rf:
-            h = (g - b) / d + (g < b ? 6 : 0);
-            break;
-          case gf:
-            h = (b - r) / d + 2;
-            break;
-          case bf:
-            h = (r - g) / d + 4;
-        }
-        h /= 6;
-      }
-      return [h, s, l];
+    hslColor: function(h, s, l) {
+      return "hsl(" + (h * 360) + "," + (s * 100) + "%," + (l * 100) + "%)";
     }
   };
 
@@ -150,15 +101,16 @@
     function Paddle(input) {
       var _ref, _ref2;
       this.input = input;
-      _ref = [60, 10], this.width = _ref[0], this.height = _ref[1];
-      _ref2 = [(WIDTH - this.width) / 2, HEIGHT - 20], this.x = _ref2[0], this.y = _ref2[1];
+      _ref = [80, 10], this.width = _ref[0], this.height = _ref[1];
+      _ref2 = [(WIDTH - this.width) / 2, HEIGHT - 30], this.x = _ref2[0], this.y = _ref2[1];
+      this.speed = 8;
     }
 
     Paddle.prototype.tick = function() {
       if (this.input.right) {
-        this.move(7, 0);
+        this.move(this.speed, 0);
       } else if (this.input.left) {
-        this.move(-7, 0);
+        this.move(-1 * this.speed, 0);
       }
       if (this.x + this.width > WIDTH) {
         return this.x = WIDTH - this.width;
@@ -200,15 +152,15 @@
       this.y = y;
       this.width = width;
       this.height = height;
-      this.color = Art.hslToRGB.apply(Art, hsl);
+      this.color = Art.hslColor.apply(Art, hsl);
       hsl[2] = Math.max(0, hsl[2] * 0.8);
-      this.outline = Art.hslToRGB.apply(Art, hsl);
+      this.outline = Art.hslColor.apply(Art, hsl);
     }
 
     Brick.prototype.render = function(ctx) {
       this.ctx = ctx;
-      this.ctx.fillStyle = Art.color.apply(Art, this.color);
-      this.ctx.strokeStyle = Art.color.apply(Art, this.outline);
+      this.ctx.fillStyle = this.color;
+      this.ctx.strokeStyle = this.outline;
       this.ctx.lineWidth = 2;
       this.ctx.fillRect(this.x, this.y, this.width, this.height);
       return this.ctx.strokeRect(this.x + 1, this.y + 1, this.width - 2, this.height - 2);
@@ -228,8 +180,9 @@
       this.y = y;
       this.radius = radius;
       _ref = [this.radius * 2, this.radius * 2], this.width = _ref[0], this.height = _ref[1];
-      _ref2 = [3, 3], this.xvel = _ref2[0], this.yvel = _ref2[1];
+      _ref2 = [4, 4], this.xvel = _ref2[0], this.yvel = _ref2[1];
       this.color = [255, 0, 0];
+      this.hitBottom = false;
     }
 
     Ball.prototype.tick = function() {
@@ -237,8 +190,11 @@
       _ref = [this.x + this.xvel, this.y + this.yvel], nx = _ref[0], ny = _ref[1];
       if (nx < 0 || nx > WIDTH - this.width) {
         this.xvel *= -1;
-      } else if (ny < 0 || ny > HEIGHT - this.height) {
+      } else if (ny < 0) {
         this.yvel *= -1;
+      } else if (ny > HEIGHT - this.height) {
+        this.yvel *= -1;
+        this.hitBottom = true;
       }
       return this.moveTo(nx, ny);
     };
@@ -268,24 +224,28 @@
     function Breakout() {}
 
     Breakout.prototype.init = function(mgr) {
+      var _ref;
       this.mgr = mgr;
-      this.ctx = this.mgr.ctx;
-      this.paddle = new Paddle(this.mgr.input);
+      _ref = this.mgr, this.ctx = _ref.ctx, this.input = _ref.input;
+      this.paddle = new Paddle(this.input);
       return this.start(1);
     };
 
-    Breakout.prototype.start = function() {
-      var cols, i, j, _results;
+    Breakout.prototype.start = function(level) {
+      var bh, bw, cols, i, j, _ref, _ref2, _results;
+      this.level = level;
       this.ball = new Ball(200, 200, 6);
       this.bricks = [];
+      _ref = [72, 20], bw = _ref[0], bh = _ref[1];
       cols = this.genColors();
+      this.won = this.lost = false;
       _results = [];
-      for (j = 0; j < 4; j++) {
+      for (j = 0, _ref2 = 2 + this.level; 0 <= _ref2 ? j < _ref2 : j > _ref2; 0 <= _ref2 ? j++ : j--) {
         _results.push((function() {
           var _results2;
           _results2 = [];
           for (i = 0; i < 10; i++) {
-            _results2.push(this.bricks.push(new Brick(i * 72, j * 20, 72, 20, cols[(i + j) % 10])));
+            _results2.push(this.bricks.push(new Brick(i * bw, j * bh, bw, bh, cols[(i + j) % 10])));
           }
           return _results2;
         }).call(this));
@@ -306,21 +266,26 @@
 
     Breakout.prototype.tick = function() {
       var _this = this;
-      this.ball.tick();
-      this.paddle.tick();
-      if (this.paddle.intersects(this.ball)) {
-        this.ball.yvel = -1 * Math.abs(this.ball.yvel);
+      if (!(this.won || this.lost)) {
+        this.ball.tick();
+        this.paddle.tick();
+        if (this.paddle.intersects(this.ball)) {
+          this.ball.yvel = -1 * Math.abs(this.ball.yvel);
+        }
+        this.bricks = this.bricks.filter(function(brick) {
+          if (!brick.intersects(_this.ball)) return true;
+          _this.ball.bounce(brick);
+          return false;
+        });
+        if (this.ball.hitBottom) this.lost = true;
+        if (this.bricks.length === 0) return this.won = true;
+      } else {
+        if (this.input.select) return this.start(this.lost ? 1 : this.level + 1);
       }
-      return this.bricks = this.bricks.filter(function(brick) {
-        if (!brick.intersects(_this.ball)) return true;
-        _this.ball.bounce(brick);
-        return false;
-      });
     };
 
     Breakout.prototype.render = function() {
-      var brick, _i, _len, _ref;
-      this.ctx.fillStyle = "#ffffff";
+      var brick, col, str, ty, _i, _len, _ref, _ref2;
       this.ctx.clearRect(0, 0, WIDTH, HEIGHT);
       _ref = this.bricks;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -328,7 +293,15 @@
         brick.render(this.ctx);
       }
       this.ball.render(this.ctx);
-      return this.paddle.render(this.ctx);
+      this.paddle.render(this.ctx);
+      if (this.won || this.lost) {
+        _ref2 = this.won ? ["You Win!", "green"] : ["You Lose!", "red"], str = _ref2[0], col = _ref2[1];
+        this.ctx.fillStyle = col;
+        this.ctx.font = "50pt sans-serif";
+        ty = (HEIGHT - 50) / 2;
+        this.ctx.fillText(str, (WIDTH - this.ctx.measureText(str).width) / 2, ty);
+        return this.ctx.fillText("press space.", (WIDTH - this.ctx.measureText("press space.").width) / 2, ty + 100);
+      }
     };
 
     return Breakout;
@@ -339,7 +312,7 @@
 
     function InputHandler() {
       var _this = this;
-      this.right = this.left = false;
+      this.right = this.left = this.space = false;
       window.addEventListener("keydown", function(evt) {
         return _this.onKey(evt.keyCode, true);
       });
@@ -356,6 +329,9 @@
         case 37:
         case 65:
           return this.left = pressed;
+        case 32:
+        case 13:
+          return this.select = pressed;
       }
     };
 
