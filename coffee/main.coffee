@@ -41,6 +41,7 @@ class Game
     @canvas = document.getElementsByTagName("canvas")[0]
     @ctx = @canvas.getContext "2d"
     @input = new InputHandler
+    @needed = 0
     new SoundManager 'destroybrick', 'lose', 'paddlebounce', 'wallbounce', 'win'
   start: ->
     @lastTick    = new Date().getTime()
@@ -51,11 +52,14 @@ class Game
   loop: ->
     currentTick = new Date().getTime()
     fps = 1000/(currentTick - @lastTick)
+    @needed = (currentTick - @lastTick)*60/1000
     if new Date().getTime() - @lastFPSDisp > 1000
       @fpsElem.innerHTML = parseInt fps
       @lastFPSDisp = new Date().getTime()
     if @running
-      do @game.tick
+      while (@needed > 0)
+        do @game.tick
+        --@needed
       do @game.render
       requestAnimFrame => do @loop
     @lastTick = currentTick
@@ -65,7 +69,7 @@ class Paddle
   constructor: (@input) ->
     [@width, @height] = [80, 10]
     [@x, @y] = [(WIDTH-@width)/2, HEIGHT-30]
-    @speed = 8
+    @speed = 5
   tick: ->
     if @input.right then @move @speed, 0
     else if @input.left then @move -1*@speed, 0
@@ -107,7 +111,7 @@ class Ball
   mixin @, Rect
   constructor: (@x, @y, @radius) ->
     [@width, @height] = [@radius*2, @radius*2]
-    [@xvel, @yvel] = [4,4]
+    [@xvel, @yvel] = [3,3]
     @color = [255,0,0]
     @hitBottom = false
   tick: ->
